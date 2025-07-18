@@ -27,11 +27,12 @@ import string
 init(autoreset=True)
 
 class JavaScriptProtocolFuzzer:
-    def __init__(self, target_url, threads=10, delay=0.1, timeout=10, target_domain=None):
+    def __init__(self, target_url, threads=10, delay=0.1, timeout=10, target_domain=None, verbose=False):
         self.target_url = target_url
         self.threads = threads
         self.delay = delay
         self.timeout = timeout
+        self.verbose = verbose
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -364,22 +365,24 @@ class JavaScriptProtocolFuzzer:
                             'content_type': response.headers.get('Content-Type', ''),
                             'verification': 'REAL_BYPASS'
                         })
-                        print(f"{Fore.GREEN}[+] REAL BYPASS FOUND!{Style.RESET_ALL}")
-                        print(f"{Fore.YELLOW}Payload: {payload}")
-                        print(f"{Fore.YELLOW}URL: {test_url}")
-                        print(f"{Fore.YELLOW}Status: {response.status_code}")
-                        print(f"{Fore.YELLOW}Content-Length: {len(response.content)}")
-                        if response.headers.get('Location'):
-                            print(f"{Fore.YELLOW}Redirect: {response.headers['Location']}")
-                        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
-                else:
+                        # Only print bypasses with status 200 (working bypasses)
+                        if response.status_code == 200:
+                            print(f"{Fore.GREEN}[+] BYPASS FOUND! Status: {response.status_code} | Payload: {payload}{Style.RESET_ALL}")
+                        if self.verbose:
+                            print(f"{Fore.YELLOW}URL: {test_url}")
+                            print(f"{Fore.YELLOW}Content-Length: {len(response.content)}")
+                            if response.headers.get('Location'):
+                                print(f"{Fore.YELLOW}Redirect: {response.headers['Location']}")
+                            print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+                elif self.verbose:
                     print(f"{Fore.BLUE}[*] False positive detected for payload: {payload}{Style.RESET_ALL}")
             
             return bypass_detected
             
         except requests.exceptions.RequestException as e:
-            with self.lock:
-                print(f"{Fore.RED}[-] Error testing payload '{payload}': {e}{Style.RESET_ALL}")
+            if self.verbose:
+                with self.lock:
+                    print(f"{Fore.RED}[-] Error testing payload '{payload}': {e}{Style.RESET_ALL}")
             return False
     
     def detect_bypass(self, response, payload):
@@ -517,22 +520,28 @@ class JavaScriptProtocolFuzzer:
     
     def run_fuzzer(self):
         """Run the main fuzzing process"""
-        print(f"{Fore.CYAN}[*] Starting JavaScript Protocol Fuzzer{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}[*] Target: {self.target_url}")
-        print(f"{Fore.CYAN}[*] Threads: {self.threads}")
-        print(f"{Fore.CYAN}[*] Delay: {self.delay}s")
-        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+        if self.verbose:
+            print(f"{Fore.CYAN}[*] Starting JavaScript Protocol Fuzzer{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}[*] Target: {self.target_url}")
+            print(f"{Fore.CYAN}[*] Threads: {self.threads}")
+            print(f"{Fore.CYAN}[*] Delay: {self.delay}s")
+            print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
         
         # First, establish baseline response
-        print(f"{Fore.BLUE}[*] Establishing baseline response...{Style.RESET_ALL}")
+        if self.verbose:
+            print(f"{Fore.BLUE}[*] Establishing baseline response...{Style.RESET_ALL}")
         baseline_response = self.session.get(self.target_url, timeout=self.timeout, allow_redirects=False)
         self.baseline_length = len(baseline_response.content)
         self.baseline_status = baseline_response.status_code
-        print(f"{Fore.BLUE}[*] Baseline - Status: {self.baseline_status}, Length: {self.baseline_length}{Style.RESET_ALL}")
+        if self.verbose:
+            print(f"{Fore.BLUE}[*] Baseline - Status: {self.baseline_status}, Length: {self.baseline_length}{Style.RESET_ALL}")
         
         # Generate all payloads
         payloads = self.generate_payloads()
-        print(f"{Fore.BLUE}[*] Generated {len(payloads)} payloads to test{Style.RESET_ALL}")
+        if self.verbose:
+            print(f"{Fore.BLUE}[*] Generated {len(payloads)} payloads to test{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.CYAN}[*] Testing {len(payloads)} payloads...{Style.RESET_ALL}")
         
         # Test with ThreadPoolExecutor
         with ThreadPoolExecutor(max_workers=self.threads) as executor:
@@ -547,10 +556,12 @@ class JavaScriptProtocolFuzzer:
                 payload = future_to_payload[future]
                 try:
                     result = future.result()
-                    if result:
+                    # Only print if verbose mode is enabled
+                    if result and self.verbose:
                         print(f"{Fore.GREEN}[+] Potential bypass found with payload: {payload}{Style.RESET_ALL}")
                 except Exception as e:
-                    print(f"{Fore.RED}[-] Error processing payload '{payload}': {e}{Style.RESET_ALL}")
+                    if self.verbose:
+                        print(f"{Fore.RED}[-] Error processing payload '{payload}': {e}{Style.RESET_ALL}")
                 
                 # Add delay between requests
                 time.sleep(self.delay)
@@ -560,41 +571,56 @@ class JavaScriptProtocolFuzzer:
     
     def print_summary(self):
         """Print the final summary"""
-        print(f"\n{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}[*] FUZZING COMPLETED{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+        if self.verbose:
+            print(f"\n{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}[*] FUZZING COMPLETED{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
         
-        if self.bypasses_found:
-            print(f"{Fore.GREEN}[+] Found {len(self.bypasses_found)} potential bypasses:{Style.RESET_ALL}")
-            for i, bypass in enumerate(self.bypasses_found, 1):
-                print(f"\n{Fore.GREEN}[{i}] Bypass Details:{Style.RESET_ALL}")
-                print(f"  Payload: {bypass['payload']}")
-                print(f"  URL: {bypass['url']}")
-                print(f"  Status Code: {bypass['status_code']}")
-                print(f"  Response Length: {bypass['response_length']}")
-                if bypass['redirect_location']:
-                    print(f"  Redirect: {bypass['redirect_location']}")
-                if bypass['content_type']:
-                    print(f"  Content-Type: {bypass['content_type']}")
+        # Filter only working bypasses (status 200)
+        working_bypasses = [bypass for bypass in self.bypasses_found if bypass['status_code'] == 200]
+        
+        if working_bypasses:
+            print(f"{Fore.GREEN}[+] Found {len(working_bypasses)} working bypasses (Status 200)!{Style.RESET_ALL}")
+            if self.verbose:
+                for i, bypass in enumerate(working_bypasses, 1):
+                    print(f"\n{Fore.GREEN}[{i}] Bypass Details:{Style.RESET_ALL}")
+                    print(f"  Payload: {bypass['payload']}")
+                    print(f"  URL: {bypass['url']}")
+                    print(f"  Status Code: {bypass['status_code']}")
+                    print(f"  Response Length: {bypass['response_length']}")
+                    if bypass['redirect_location']:
+                        print(f"  Redirect: {bypass['redirect_location']}")
+                    if bypass['content_type']:
+                        print(f"  Content-Type: {bypass['content_type']}")
+        elif self.bypasses_found:
+            print(f"{Fore.YELLOW}[!] Found {len(self.bypasses_found)} potential bypasses but none with Status 200.{Style.RESET_ALL}")
+            if self.verbose:
+                print(f"{Fore.YELLOW}All bypasses were redirects (302) which may not be exploitable.{Style.RESET_ALL}")
             
             # Save results to file
             self.save_results()
         else:
-            print(f"{Fore.YELLOW}[!] No bypasses found. The server-side validation appears to be robust.{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}[!] No bypasses found.{Style.RESET_ALL}")
     
     def save_results(self):
         """Save results to a JSON file"""
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         filename = f"javascript_bypass_results_{timestamp}.json"
         
+        # Filter only working bypasses (status 200)
+        working_bypasses = [bypass for bypass in self.bypasses_found if bypass['status_code'] == 200]
+        
         with open(filename, 'w') as f:
             json.dump({
                 'target_url': self.target_url,
                 'timestamp': timestamp,
-                'bypasses_found': self.bypasses_found
+                'bypasses_found': working_bypasses,
+                'total_bypasses_found': len(self.bypasses_found),
+                'working_bypasses': len(working_bypasses)
             }, f, indent=2)
         
-        print(f"{Fore.GREEN}[+] Results saved to: {filename}{Style.RESET_ALL}")
+        if self.verbose:
+            print(f"{Fore.GREEN}[+] Results saved to: {filename}{Style.RESET_ALL}")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -606,6 +632,7 @@ Examples:
   python3 javascript_protocol_fuzzer.py "https://example.com/page" --domain example.com
   python3 javascript_protocol_fuzzer.py "https://example.com/page" --threads 20 --delay 0.05
   python3 javascript_protocol_fuzzer.py "https://example.com/page" --timeout 15
+  python3 javascript_protocol_fuzzer.py "https://example.com/page" --verbose
         """
     )
     
@@ -614,6 +641,7 @@ Examples:
     parser.add_argument("--threads", type=int, default=10, help="Number of threads (default: 10)")
     parser.add_argument("--delay", type=float, default=0.1, help="Delay between requests in seconds (default: 0.1)")
     parser.add_argument("--timeout", type=int, default=10, help="Request timeout in seconds (default: 10)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
     
     args = parser.parse_args()
     
@@ -629,7 +657,8 @@ Examples:
             threads=args.threads,
             delay=args.delay,
             timeout=args.timeout,
-            target_domain=args.domain
+            target_domain=args.domain,
+            verbose=args.verbose
         )
         
         fuzzer.run_fuzzer()

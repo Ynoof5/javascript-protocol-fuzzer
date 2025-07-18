@@ -43,6 +43,9 @@ python3 javascript_protocol_fuzzer.py "https://target-url.com/page?param=value"
 ### Advanced Usage
 
 ```bash
+# With custom domain for payloads
+python3 javascript_protocol_fuzzer.py "https://target-url.com/page" --domain target-url.com
+
 # With custom threading and delay
 python3 javascript_protocol_fuzzer.py "https://target-url.com/page" --threads 20 --delay 0.05
 
@@ -50,12 +53,13 @@ python3 javascript_protocol_fuzzer.py "https://target-url.com/page" --threads 20
 python3 javascript_protocol_fuzzer.py "https://target-url.com/page" --timeout 15
 
 # Using the shell script
-./run_fuzzer.sh
+./run_fuzzer.sh "https://target-url.com/page" "target-url.com"
 ```
 
 ### Parameters
 
 - `target_url`: The URL to test (required)
+- `--domain`: Target domain for payloads (default: extracted from target URL)
 - `--threads`: Number of concurrent threads (default: 10)
 - `--delay`: Delay between requests in seconds (default: 0.1)
 - `--timeout`: Request timeout in seconds (default: 10)

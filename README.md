@@ -69,13 +69,9 @@ python3 javascript_protocol_fuzzer.py "https://target-url.com/page" --timeout 15
 ```
 javascript-protocol-fuzzer/
 ├── javascript_protocol_fuzzer.py    # Main fuzzer tool
-├── test_fuzzer.py                   # Test script for validation
-├── bypass_verifier.py               # Bypass verification tool
-├── run_fuzzer.sh                    # Shell script for easy execution
 ├── requirements.txt                 # Python dependencies
 ├── LICENSE                          # License file
 ├── README.md                        # This file
-└── .gitignore                       # Git ignore file
 ```
 
 ## 🔧 Bypass Techniques Tested

